@@ -9,7 +9,7 @@ const main = async () => {
     config: {
       systemInstruction: `Current User is Vishal, and his age is 25 and current date is: ${new Date()}`,
     },
-    contents: "What's my name is?",
+    contents: "What's current date?",
   });
   console.log(response.text);
 };
