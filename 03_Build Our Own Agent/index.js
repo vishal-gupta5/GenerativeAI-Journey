@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { GoogleGenAI, Type } from "@google/genai";
+import readlineSync from "readline-sync";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -50,3 +51,83 @@ const weatherInfo = {
     required: ["city"],
   },
 };
+
+const tools = [
+  {
+    cryptoCurrency,
+    weatherInfo,
+  },
+];
+
+const toolFunction = {
+  weatherInformation: weatherInformation,
+  cryptoCurrency: cryptoCurrency,
+};
+
+let History = [];
+
+const runAgent = async () => {
+  while (true) {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: History,
+      config: { tools },
+    });
+
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      const functionCall = response.functionCalls[0];
+      const { name, args } = functionCall;
+
+      const result = await toolFunction[name](args);
+
+      const functionResponsePart = {
+        name: functionCall.name,
+        response: {
+          result: result,
+        },
+        id: functionCall.id,
+      };
+
+      // Send the function response back to the model.
+
+      History.push({
+        role: "model",
+        parts: [
+          {
+            functionCall: functionCall,
+          },
+        ],
+      });
+
+      History.push({
+        role: "user",
+        parts: [
+          {
+            functionResponse: functionResponsePart,
+          },
+        ],
+      });
+    } else {
+      History.push({
+        role: "model",
+        parts: [{ text: response.text }],
+      });
+      console.log(response.text);
+    }
+  }
+};
+
+while (true) {
+  const question = readlineSync.question("Ask me anything? ");
+
+  if (question === "exit") {
+    break;
+  }
+
+  History.push({
+    role: "user",
+    parts: [{ text: question }],
+  });
+
+  await runAgent();
+}
